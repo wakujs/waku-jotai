@@ -29,7 +29,7 @@
     "dist"
   ],
   "scripts": {
-    "compile": "rm -rf dist && tsc -p tsconfig.json",
+    "compile": "rm -rf dist && tsc -p .",
     "test": "pnpm run '/^test:.*/'",
     "test:format": "prettier -c .",
     "test:lint": "eslint .",
