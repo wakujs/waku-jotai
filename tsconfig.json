@@ -12,8 +12,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "waku-jotai/minimal": ["./src/minimal/index.ts"],
-      "waku-jotai/router": ["./src/router/index.ts"]
+      "waku-jotai/*": ["src/*"]
     },
     "declaration": true,
     "outDir": "./dist"
