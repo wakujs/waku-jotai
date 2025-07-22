@@ -78,6 +78,7 @@
   },
   "peerDependencies": {
     "jotai": ">=2.0.0",
+    "react": ">=19.0.0",
     "waku": ">=0.23.6"
   }
 }
