@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import type { ReactNode } from 'react';
 import type { Atom } from 'jotai/vanilla';
-import { INTERNAL_buildStoreRev1 as buildStore } from 'jotai/vanilla/internals';
+import { INTERNAL_buildStoreRev2 as buildStore } from 'jotai/vanilla/internals';
 import type {
   INTERNAL_AtomState as AtomState,
   INTERNAL_AtomStateMap as AtomStateMap,
