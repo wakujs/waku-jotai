@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-06
+
+### Changed
+
+- fix: use storeHooks.i instead of patching AtomStateMap (#3)
+
 ## [0.1.1] - 2025-11-29
 
 ### Changed
