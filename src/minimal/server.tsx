@@ -1,10 +1,10 @@
 import { cache } from 'react';
 import type { ReactNode } from 'react';
 import type { Atom } from 'jotai/vanilla';
-import { INTERNAL_buildStoreRev2 as buildStore } from 'jotai/vanilla/internals';
-import type {
-  INTERNAL_AtomState as AtomState,
-  INTERNAL_AtomStateMap as AtomStateMap,
+import {
+  INTERNAL_buildStoreRev2 as buildStore,
+  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
+  INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
 } from 'jotai/vanilla/internals';
 
 import { SyncAtoms } from './client.js';
@@ -44,21 +44,23 @@ const ensureMap = (value: unknown) =>
 export const prepareStore = (atomValues: unknown) => {
   const clientAtomValues = ensureMap(atomValues);
   const clientAtoms = new Map<Atom<unknown>, ClientReferenceId>();
-  const atomStateMap = new Map<Atom<unknown>, AtomState>();
-  const patchedAtomStateMap: AtomStateMap = {
-    get: (a) => atomStateMap.get(a),
-    set: (a, s) => {
-      const id = getClientReferenceId(a);
-      if (id) {
-        clientAtoms.set(a, id);
-        if (clientAtomValues.has(id)) {
-          s.v = clientAtomValues.get(id) as never;
+
+  const store = buildStore();
+  const buildingBlocks = getBuildingBlocks(store);
+  const atomStateMap = buildingBlocks[0];
+  const storeHooks = initializeStoreHooks(buildingBlocks[6]);
+  storeHooks.i.add(undefined, (atom) => {
+    const id = getClientReferenceId(atom);
+    if (id) {
+      clientAtoms.set(atom, id);
+      if (clientAtomValues.has(id)) {
+        const atomState = atomStateMap.get(atom);
+        if (atomState) {
+          atomState.v = clientAtomValues.get(id);
         }
       }
-      atomStateMap.set(a, s);
-    },
-  };
-  const store = buildStore(patchedAtomStateMap);
+    }
+  });
   const { resolveStore } = createStorePromise();
   resolveStore(store);
   let resolveAtoms: (m: Map<Atom<unknown>, string>) => void;
@@ -68,9 +70,11 @@ export const prepareStore = (atomValues: unknown) => {
   setTimeout(async () => {
     let size: number;
     do {
-      size = atomStateMap.size;
-      await Promise.all(Array.from(atomStateMap.values()).map((s) => s.v));
-    } while (size !== atomStateMap.size);
+      size = clientAtoms.size;
+      await Promise.all(
+        Array.from(clientAtoms.keys()).map((a) => atomStateMap.get(a)?.v),
+      );
+    } while (size !== clientAtoms.size);
     resolveAtoms(clientAtoms);
   });
   return atomsPromise;

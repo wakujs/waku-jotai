@@ -51,8 +51,8 @@ importers:
         specifier: ^18.0.1
         version: 18.0.1
       jotai:
-        specifier: ^2.14.0
-        version: 2.14.0(@babel/core@7.28.0)(@babel/template@7.27.2)(@types/react@19.1.8)(react@19.1.0)
+        specifier: ^2.15.2
+        version: 2.15.2(@babel/core@7.28.0)(@babel/template@7.27.2)(@types/react@19.1.8)(react@19.1.0)
       prettier:
         specifier: ^3.6.2
         version: 3.6.2
@@ -1785,8 +1785,8 @@ packages:
     resolution: {integrity: sha512-7vuh85V5cdDofPyxn58nrPjBktZo0u9x1g8WtjQol+jZDaE+fhN+cIvTj11GndBnMnyfrUOG1sZQxCdjKh+DKg==}
     engines: {node: '>= 10.13.0'}
 
-  jotai@2.14.0:
-    resolution: {integrity: sha512-JQkNkTnqjk1BlSUjHfXi+pGG/573bVN104gp6CymhrWDseZGDReTNniWrLhJ+zXbM6pH+82+UNJ2vwYQUkQMWQ==}
+  jotai@2.15.2:
+    resolution: {integrity: sha512-El86CCfXNMEOytp20NPfppqGGmcp6H6kIA+tJHdmASEUURJCYW4fh8nTHEnB8rUXEFAY1pm8PdHPwnrcPGwdEg==}
     engines: {node: '>=12.20.0'}
     peerDependencies:
       '@babel/core': '>=7.0.0'
@@ -4424,7 +4424,7 @@ snapshots:
       merge-stream: 2.0.0
       supports-color: 8.1.1
 
-  jotai@2.14.0(@babel/core@7.28.0)(@babel/template@7.27.2)(@types/react@19.1.8)(react@19.1.0):
+  jotai@2.15.2(@babel/core@7.28.0)(@babel/template@7.27.2)(@types/react@19.1.8)(react@19.1.0):
     optionalDependencies:
       '@babel/core': 7.28.0
       '@babel/template': 7.27.2
