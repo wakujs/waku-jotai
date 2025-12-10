@@ -29,7 +29,6 @@ export default async function HomePage() {
       </h1>
       <p>{data.body}</p>
       <Counter />
-      <p style={{ marginTop: '1rem' }}>Jotai Count: {store.get(countAtom)}</p>
       <h2>(doubleCount={doubleCount})</h2>
       <Link
         to="/about"
