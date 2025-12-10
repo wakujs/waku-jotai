@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-12-10
+
+### Changed
+
+- fix: wait for all atoms to resolve (#6)
+
 ## [0.2.0] - 2025-12-06
 
 ### Changed
