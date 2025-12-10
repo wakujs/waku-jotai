@@ -43,6 +43,7 @@ const ensureMap = (value: unknown) =>
 
 export const prepareStore = (atomValues: unknown) => {
   const clientAtomValues = ensureMap(atomValues);
+  const allClientAtoms = new Set<Atom<unknown>>();
   const clientAtoms = new Map<Atom<unknown>, ClientReferenceId>();
 
   const store = buildStore();
@@ -50,6 +51,7 @@ export const prepareStore = (atomValues: unknown) => {
   const atomStateMap = buildingBlocks[0];
   const storeHooks = initializeStoreHooks(buildingBlocks[6]);
   storeHooks.i.add(undefined, (atom) => {
+    allClientAtoms.add(atom);
     const id = getClientReferenceId(atom);
     if (id) {
       clientAtoms.set(atom, id);
@@ -70,11 +72,11 @@ export const prepareStore = (atomValues: unknown) => {
   setTimeout(async () => {
     let size: number;
     do {
-      size = clientAtoms.size;
+      size = allClientAtoms.size;
       await Promise.all(
-        Array.from(clientAtoms.keys()).map((a) => atomStateMap.get(a)?.v),
+        Array.from(allClientAtoms).map((a) => atomStateMap.get(a)?.v),
       );
-    } while (size !== clientAtoms.size);
+    } while (size !== allClientAtoms.size);
     resolveAtoms(clientAtoms);
   });
   return atomsPromise;
