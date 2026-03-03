@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-03
+
+### Changed
+
+- breaking: follow new waku/minimal api (#8)
+
 ## [0.2.1] - 2025-12-10
 
 ### Changed
