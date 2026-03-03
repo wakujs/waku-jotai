@@ -2,7 +2,8 @@
 
 import { useEffect, useRef } from 'react';
 import {
-  useEnhanceFetchRscInternal_UNSTABLE as useEnhanceFetchRscInternal,
+  unstable_registerFetchRscInputTransformer as registerFetchRscInputTransformer,
+  useFetchRscStore_UNSTABLE as useFetchRscStore,
   useRefetch,
 } from 'waku/minimal/client';
 import { atom, useStore } from 'jotai';
@@ -53,7 +54,7 @@ export const SyncAtoms = ({
   ensureObject?: (rscParams: unknown) => Record<string, unknown>;
 }) => {
   const store = useStore();
-  const enhanceFetchRscInternal = useEnhanceFetchRscInternal();
+  const fetchRscStore = useFetchRscStore();
   const refetch = useRefetch();
   const prevAtomValues = useRef(new Map<Atom<unknown>, unknown>());
   const atomsMap = useRef(
@@ -108,37 +109,30 @@ export const SyncAtoms = ({
   }, [store, atomsPromise, refetch, rscPath, rscParams, ensureObject]);
   useEffect(() => {
     const rscParamsCache = new WeakMap<object, unknown>();
-    return enhanceFetchRscInternal(
-      (fetchRscInternal) =>
-        (
-          rscPath: string,
-          rscParams: unknown,
-          prefetchOnly,
-          fetchFn = fetch,
-        ) => {
-          const atoms = atomsMap.current.get(rscPath);
-          if (atoms?.size) {
-            const atomValues = store.get(createAtomValuesAtom(atoms));
-            prevAtomValues.current = atomValues;
-            rscParams =
-              rscParamsCache.get(atoms) ||
-              patchRscParams(ensureObject(rscParams), atoms, atomValues);
-            if (prefetchOnly) {
-              rscParamsCache.set(atoms, rscParams);
-            } else {
-              rscParamsCache.delete(atoms);
-            }
-          }
-          type Elements = Record<string, unknown>;
-          const elementsPromise = fetchRscInternal(
-            rscPath,
-            rscParams,
-            prefetchOnly as undefined,
-            fetchFn,
-          ) as Promise<Elements> | undefined;
-          return elementsPromise as never;
-        },
+    const transformFetchRscInput = (
+      rscPath: string,
+      rscParams: unknown,
+      prefetchOnly: boolean,
+    ) => {
+      const atoms = atomsMap.current.get(rscPath);
+      if (atoms?.size) {
+        const atomValues = store.get(createAtomValuesAtom(atoms));
+        prevAtomValues.current = atomValues;
+        rscParams =
+          rscParamsCache.get(atoms) ||
+          patchRscParams(ensureObject(rscParams), atoms, atomValues);
+        if (prefetchOnly) {
+          rscParamsCache.set(atoms, rscParams);
+        } else {
+          rscParamsCache.delete(atoms);
+        }
+      }
+      return [rscPath, rscParams, prefetchOnly] as const;
+    };
+    return registerFetchRscInputTransformer(
+      fetchRscStore,
+      transformFetchRscInput,
     );
-  }, [store, enhanceFetchRscInternal, ensureObject]);
+  }, [store, fetchRscStore, ensureObject]);
   return null;
 };
