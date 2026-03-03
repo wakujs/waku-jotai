@@ -81,8 +81,8 @@ importers:
         specifier: ^4.0.18
         version: 4.0.18(@types/node@25.3.2)(happy-dom@20.7.0)(terser@5.46.0)
       waku:
-        specifier: https://pkg.pr.new/waku@93ec22b
-        version: https://pkg.pr.new/waku@93ec22b(@types/node@25.3.2)(react-dom@19.2.4(react@19.2.4))(react-server-dom-webpack@19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.100.2))(react@19.2.4)(terser@5.46.0)
+        specifier: ^1.0.0-alpha.5
+        version: 1.0.0-alpha.5(@types/node@25.3.2)(react-dom@19.2.4(react@19.2.4))(react-server-dom-webpack@19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.100.2))(react@19.2.4)(terser@5.46.0)
       waku-jotai:
         specifier: 'link:'
         version: 'link:'
@@ -2326,9 +2326,8 @@ packages:
       jsdom:
         optional: true
 
-  waku@https://pkg.pr.new/waku@93ec22b:
-    resolution: {tarball: https://pkg.pr.new/waku@93ec22b}
-    version: 1.0.0-alpha.4
+  waku@1.0.0-alpha.5:
+    resolution: {integrity: sha512-DCKZD3grtGvuQdAQyIfqz9PkZoppto7Ysjf5yubD0oXcSQFJSlzLTz7APGuLiGf0NH67PBw1DFGxnV3Tf3J3BA==}
     engines: {node: ^24.0.0 || ^22.12.0 || ^20.19.0}
     hasBin: true
     peerDependencies:
@@ -4846,7 +4845,7 @@ snapshots:
       - tsx
       - yaml
 
-  waku@https://pkg.pr.new/waku@93ec22b(@types/node@25.3.2)(react-dom@19.2.4(react@19.2.4))(react-server-dom-webpack@19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.100.2))(react@19.2.4)(terser@5.46.0):
+  waku@1.0.0-alpha.5(@types/node@25.3.2)(react-dom@19.2.4(react@19.2.4))(react-server-dom-webpack@19.2.4(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(webpack@5.100.2))(react@19.2.4)(terser@5.46.0):
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.12.3)
       '@vitejs/plugin-react': 5.1.4(vite@7.3.1(@types/node@25.3.2)(terser@5.46.0))
