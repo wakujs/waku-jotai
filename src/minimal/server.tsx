@@ -2,9 +2,9 @@ import { cache } from 'react';
 import type { ReactNode } from 'react';
 import type { Atom } from 'jotai/vanilla';
 import {
-  INTERNAL_buildStoreRev2 as buildStore,
-  INTERNAL_getBuildingBlocksRev2 as getBuildingBlocks,
-  INTERNAL_initializeStoreHooksRev2 as initializeStoreHooks,
+  INTERNAL_buildStoreRev3 as buildStore,
+  INTERNAL_getBuildingBlocksRev3 as getBuildingBlocks,
+  INTERNAL_initializeStoreHooksRev3 as initializeStoreHooks,
 } from 'jotai/vanilla/internals';
 
 import { SyncAtoms } from './client.js';
