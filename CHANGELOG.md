@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-12
+
+### Changed
+
+- use planned jotai 2.20.0 (#9)
+
 ## [0.3.0] - 2026-03-03
 
 ### Changed
