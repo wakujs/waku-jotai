@@ -10,11 +10,11 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
-      "waku-jotai/*": ["src/*"]
+      "waku-jotai/*": ["./src/*"]
     },
     "declaration": true,
+    "rootDir": "./src",
     "outDir": "./dist"
   },
   "include": ["src"],
