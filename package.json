@@ -34,7 +34,9 @@
     "test:lint": "eslint .",
     "test:types": "tsc -p . --noEmit",
     "test:types:examples": "tsc -p examples --noEmit",
+    "test:types:e2e": "tsc -p tsconfig.e2e.json",
     "test:spec": "vitest run",
+    "e2e": "pnpm compile && playwright test",
     "examples:01_minimal": "(cd examples/01_minimal; waku dev)",
     "examples:02_router": "(cd examples/02_router; waku dev)",
     "examples:03_search": "(cd examples/03_search; waku dev)"
@@ -50,6 +52,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
