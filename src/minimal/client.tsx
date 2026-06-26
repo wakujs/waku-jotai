@@ -3,7 +3,6 @@
 import { useEffect, useRef } from 'react';
 import {
   unstable_registerFetchRscInputTransformer as registerFetchRscInputTransformer,
-  useFetchRscStore_UNSTABLE as useFetchRscStore,
   useRefetch,
 } from 'waku/minimal/client';
 import { atom, useStore } from 'jotai';
@@ -54,7 +53,6 @@ export const SyncAtoms = ({
   ensureObject?: (rscParams: unknown) => Record<string, unknown>;
 }) => {
   const store = useStore();
-  const fetchRscStore = useFetchRscStore();
   const refetch = useRefetch();
   const prevAtomValues = useRef(new Map<Atom<unknown>, unknown>());
   const atomsMap = useRef(
@@ -129,10 +127,7 @@ export const SyncAtoms = ({
       }
       return [rscPath, rscParams, prefetchOnly] as const;
     };
-    return registerFetchRscInputTransformer(
-      fetchRscStore,
-      transformFetchRscInput,
-    );
-  }, [store, fetchRscStore, ensureObject]);
+    return registerFetchRscInputTransformer(transformFetchRscInput);
+  }, [store, ensureObject]);
   return null;
 };
