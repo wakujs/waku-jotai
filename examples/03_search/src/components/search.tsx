@@ -22,6 +22,7 @@ export const Search = () => {
     >
       <input
         type="search"
+        name="query"
         value={text}
         placeholder="Search fruits…"
         onChange={(event) => {
