@@ -36,7 +36,8 @@
     "test:types:examples": "tsc -p examples --noEmit",
     "test:spec": "vitest run",
     "examples:01_minimal": "(cd examples/01_minimal; waku dev)",
-    "examples:02_router": "(cd examples/02_router; waku dev)"
+    "examples:02_router": "(cd examples/02_router; waku dev)",
+    "examples:03_search": "(cd examples/03_search; waku dev)"
   },
   "keywords": [
     "react",
