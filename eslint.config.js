@@ -6,7 +6,7 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default tseslint.config(
-  { ignores: ['dist/', 'website/'] },
+  { ignores: ['dist/', 'website/', '**/pages.gen.ts'] },
   eslint.configs.recommended,
   tseslint.configs.recommended,
   importPlugin.flatConfigs.recommended,
