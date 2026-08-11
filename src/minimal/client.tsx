@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
+  unstable_fetchRsc as fetchRsc,
   unstable_registerFetchRscInputTransformer as registerFetchRscInputTransformer,
-  useRefetch,
+  unstable_registerRscReloadListener as registerRscReloadListener,
+  useMergeElements_UNSTABLE as useMergeElements,
 } from 'waku/minimal/client';
 import { atom, useStore } from 'jotai';
 import type { Atom } from 'jotai';
@@ -39,6 +41,23 @@ const patchRscParams = (
     ...rscParams,
     jotai_atomValues: serializedAtomValues,
   };
+};
+
+const useRefetch = () => {
+  const mergeElements = useMergeElements();
+  return useCallback(
+    (rscPath: string, rscParams?: unknown) => {
+      const refetch = () => mergeElements(fetchRsc(rscPath, rscParams));
+      registerRscReloadListener(
+        () => {
+          void refetch();
+        },
+        { replace: true },
+      );
+      return refetch();
+    },
+    [mergeElements],
+  );
 };
 
 export const SyncAtoms = ({
@@ -106,26 +125,14 @@ export const SyncAtoms = ({
     return () => controller.abort();
   }, [store, atomsPromise, refetch, rscPath, rscParams, ensureObject]);
   useEffect(() => {
-    const rscParamsCache = new WeakMap<object, unknown>();
-    const transformFetchRscInput = (
-      rscPath: string,
-      rscParams: unknown,
-      prefetchOnly: boolean,
-    ) => {
+    const transformFetchRscInput = (rscPath: string, rscParams: unknown) => {
       const atoms = atomsMap.current.get(rscPath);
       if (atoms?.size) {
         const atomValues = store.get(createAtomValuesAtom(atoms));
         prevAtomValues.current = atomValues;
-        rscParams =
-          rscParamsCache.get(atoms) ||
-          patchRscParams(ensureObject(rscParams), atoms, atomValues);
-        if (prefetchOnly) {
-          rscParamsCache.set(atoms, rscParams);
-        } else {
-          rscParamsCache.delete(atoms);
-        }
+        rscParams = patchRscParams(ensureObject(rscParams), atoms, atomValues);
       }
-      return [rscPath, rscParams, prefetchOnly] as const;
+      return [rscPath, rscParams] as const;
     };
     return registerFetchRscInputTransformer(transformFetchRscInput);
   }, [store, ensureObject]);

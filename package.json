@@ -76,13 +76,13 @@
     "typescript-eslint": "^8.62.0",
     "vite": "^8.1.0",
     "vitest": "^4.1.9",
-    "waku": "1.0.0-beta.4",
+    "waku": "1.0.0-beta.9",
     "waku-jotai": "link:"
   },
   "peerDependencies": {
     "jotai": ">=2.20.0",
     "react": ">=19.0.0",
-    "waku": ">=1.0.0-beta.4"
+    "waku": ">=1.0.0-beta.9"
   },
   "packageManager": "pnpm@11.3.0+sha512.2c403d6594527287672b1f7056343a1f7c3634036a67ffabfcc2b3d7595d843768f8787148d1b57cf7956c90606bbd192857c363af19e96d2d0ec9ec5741d215"
 }
