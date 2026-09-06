@@ -9,7 +9,7 @@
     "start": "waku start"
   },
   "dependencies": {
-    "jotai": "^2.20.1",
+    "jotai": "3.0.0-alpha.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-server-dom-webpack": "^19.2.7",
