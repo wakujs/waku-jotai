@@ -2,9 +2,11 @@ import { cache } from 'react';
 import type { ReactNode } from 'react';
 import type { Atom } from 'jotai/vanilla';
 import {
-  INTERNAL_buildStoreRev3 as buildStore,
-  INTERNAL_getBuildingBlocksRev3 as getBuildingBlocks,
-  INTERNAL_initializeStoreHooksRev3 as initializeStoreHooks,
+  INTERNAL_buildStoreRev4 as buildStore,
+  INTERNAL_getBuildingBlocksRev4 as getBuildingBlocks,
+  INTERNAL_initializeStoreHooksRev4 as initializeStoreHooks,
+  INTERNAL_KEY_atomStateMap as KEY_atomStateMap,
+  INTERNAL_KEY_storeHooks as KEY_storeHooks,
 } from 'jotai/vanilla/internals';
 
 import { SyncAtoms } from './client.js';
@@ -48,8 +50,8 @@ export const prepareStore = (atomValues: unknown) => {
 
   const store = buildStore();
   const buildingBlocks = getBuildingBlocks(store);
-  const atomStateMap = buildingBlocks[0];
-  const storeHooks = initializeStoreHooks(buildingBlocks[6]);
+  const atomStateMap = buildingBlocks[KEY_atomStateMap];
+  const storeHooks = initializeStoreHooks(buildingBlocks[KEY_storeHooks]);
   storeHooks.i.add(undefined, (atom) => {
     allClientAtoms.add(atom);
     const id = getClientReferenceId(atom);
