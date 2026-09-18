@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import {
-  unstable_fetchRsc as fetchRsc,
-  unstable_registerFetchRscInputTransformer as registerFetchRscInputTransformer,
-  unstable_registerRscReloadListener as registerRscReloadListener,
+  useFetchRsc_UNSTABLE as useFetchRsc,
   useMergeElements_UNSTABLE as useMergeElements,
+  useRegisterRscEnhancer_UNSTABLE as useRegisterRscEnhancer,
+  useRegisterRscReloadListener_UNSTABLE as useRegisterRscReloadListener,
 } from 'waku/minimal/client';
 import { atom, useStore } from 'jotai';
 import type { Atom } from 'jotai';
@@ -44,7 +44,9 @@ const patchRscParams = (
 };
 
 const useRefetch = () => {
+  const fetchRsc = useFetchRsc();
   const mergeElements = useMergeElements();
+  const registerRscReloadListener = useRegisterRscReloadListener();
   return useCallback(
     (rscPath: string, rscParams?: unknown) => {
       const refetch = () => mergeElements(fetchRsc(rscPath, rscParams));
@@ -56,7 +58,7 @@ const useRefetch = () => {
       );
       return refetch();
     },
-    [mergeElements],
+    [fetchRsc, mergeElements, registerRscReloadListener],
   );
 };
 
@@ -73,6 +75,7 @@ export const SyncAtoms = ({
 }) => {
   const store = useStore();
   const refetch = useRefetch();
+  const registerRscEnhancer = useRegisterRscEnhancer();
   const prevAtomValues = useRef(new Map<Atom<unknown>, unknown>());
   const atomsMap = useRef(
     new Map<
@@ -124,17 +127,22 @@ export const SyncAtoms = ({
     });
     return () => controller.abort();
   }, [store, atomsPromise, refetch, rscPath, rscParams, ensureObject]);
-  useEffect(() => {
-    const transformFetchRscInput = (rscPath: string, rscParams: unknown) => {
-      const atoms = atomsMap.current.get(rscPath);
-      if (atoms?.size) {
-        const atomValues = store.get(createAtomValuesAtom(atoms));
-        prevAtomValues.current = atomValues;
-        rscParams = patchRscParams(ensureObject(rscParams), atoms, atomValues);
-      }
-      return [rscPath, rscParams] as const;
-    };
-    return registerFetchRscInputTransformer(transformFetchRscInput);
-  }, [store, ensureObject]);
+  useEffect(
+    () =>
+      registerRscEnhancer((requestRsc) => (rscPath, rscParams, options) => {
+        const atoms = atomsMap.current.get(rscPath);
+        if (atoms?.size) {
+          const atomValues = store.get(createAtomValuesAtom(atoms));
+          prevAtomValues.current = atomValues;
+          rscParams = patchRscParams(
+            ensureObject(rscParams),
+            atoms,
+            atomValues,
+          );
+        }
+        return requestRsc(rscPath, rscParams, options);
+      }),
+    [store, ensureObject, registerRscEnhancer],
+  );
   return null;
 };
