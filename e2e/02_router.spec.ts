@@ -51,3 +51,19 @@ test('shared jotai atom recomputes the server-only atom', async ({ page }) => {
     timeout: 20_000,
   });
 });
+
+test('returning to a route sends the current atom value', async ({ page }) => {
+  await page.goto('/');
+  await waitForHydration(page);
+  await page.getByRole('button', { name: 'Jotai Increment' }).click();
+  await expect(page.getByText('(doubleCount=4)', { exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
+  await page.getByRole('link', { name: 'About page' }).click();
+  await expect(page.getByRole('heading', { name: 'About Waku' })).toBeVisible();
+  await page.getByRole('link', { name: 'Return home' }).click();
+  await expect(page.getByText('(doubleCount=4)', { exact: true })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText('Jotai Count: 2', { exact: true })).toBeVisible();
+});

@@ -10,13 +10,40 @@ Share a Jotai atom across the RSC boundary: a Server Component can read — and 
 npm install waku-jotai
 ```
 
-`jotai`, `react`, and `waku` are peer dependencies. There is nothing at the package root — import from `waku-jotai/router` (the file-based router) or `waku-jotai/minimal` (the low-level `waku/minimal` API).
+`jotai`, `react`, and `waku` are peer dependencies; Waku 1.0.0-rc.4 or later is required. Import server APIs from `waku-jotai/router` or `waku-jotai/minimal`, and client integrations from their `/client` entry points.
 
 ## Quick start
 
 For the file-based router.
 
-**1. Mark a client atom with `allowServer`.** It's an ordinary Jotai atom; `allowServer` (from `waku/client`) lets its value be referenced on the server.
+**1. Create the Jotai integration in the client entry.** Mount its Provider around Waku's Router and pass its enhancer to the Router.
+
+```tsx
+// src/waku.client.tsx
+import { StrictMode } from 'react';
+import { createRoot, hydrateRoot } from 'react-dom/client';
+import { unstable_defaultRootOptions as defaultRootOptions } from 'waku/client';
+import { Router } from 'waku/router/client';
+import { createJotaiIntegration } from 'waku-jotai/router/client';
+
+const jotai = createJotaiIntegration();
+const rscEnhancers = [jotai.rscEnhancer];
+
+const app = (
+  <StrictMode>
+    <jotai.Provider>
+      <Router unstable_rscEnhancers={rscEnhancers} />
+    </jotai.Provider>
+  </StrictMode>
+);
+if ((globalThis as Record<string, unknown>).__WAKU_HYDRATE__) {
+  hydrateRoot(document, app, defaultRootOptions);
+} else {
+  createRoot(document, defaultRootOptions).render(app);
+}
+```
+
+**2. Mark a client atom with `allowServer`.** It's an ordinary Jotai atom; `allowServer` (from `waku/client`) lets its value be referenced on the server.
 
 ```tsx
 // src/components/counter.tsx
@@ -32,7 +59,7 @@ export const Counter = () => {
 };
 ```
 
-**2. Wrap your app in `<RouterProvider>`,** typically in a layout.
+**3. Wrap your app in `<RouterProvider>`,** typically in a layout.
 
 ```tsx
 // src/pages/_layout.tsx
@@ -44,7 +71,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 }
 ```
 
-**3. Read the atom on the server** with `getStore`. A Server Component can read the shared atom directly, or — more usefully — a server-only atom derived from it:
+**4. Read the atom on the server** with `getStore`. A Server Component can read the shared atom directly, or — more usefully — a server-only atom derived from it:
 
 ```tsx
 // src/pages/index.tsx
@@ -72,7 +99,28 @@ The derived atom can be **async**, which is where this earns its keep: read a cl
 
 ## Minimal
 
-The `minimal` entry point is the same idea for Waku's low-level API. You mount `<Provider>` yourself and hand it the request's `rscPath` and `rscParams`:
+Create the Minimal integration in the client entry and configure Waku's native Root:
+
+```tsx
+import {
+  Root_UNSTABLE as Root,
+  Slot_UNSTABLE as Slot,
+} from 'waku/minimal/client';
+import { createJotaiIntegration } from 'waku-jotai/minimal/client';
+
+const jotai = createJotaiIntegration();
+const rscEnhancers = [jotai.rscEnhancer];
+
+const app = (
+  <jotai.Provider>
+    <Root rscEnhancers={rscEnhancers}>
+      <Slot id="App" />
+    </Root>
+  </jotai.Provider>
+);
+```
+
+On the server, mount `<Provider>` and pass the request's `rscPath` and `rscParams`:
 
 ```tsx
 import { Provider, getStore } from 'waku-jotai/minimal';
@@ -88,9 +136,26 @@ const App = ({ rscParams }: { rscParams: unknown }) => (
 
 ## API
 
+- **`createJotaiIntegration(store?)`** (`waku-jotai/minimal/client` or `waku-jotai/router/client`) — returns a client `Provider` and `rscEnhancer` bound to a Jotai store. Creates a store when omitted; pass an existing store to share its state. Use the entry point matching Waku's Root or Router.
 - **`getStore(): Promise<Store>`** — from either entry point. Returns the request-scoped Jotai store for the current render; `await` it in a Server Component and call `store.get(atom)` to read any atom, including server-only derived ones. Memoized per request, so every Server Component in one render shares a single store.
 - **`RouterProvider`** (`waku-jotai/router`) — wraps your app and wires up the sync. It reads `rscPath`/`rscParams` from `waku/router/server`, so it takes no props; drop it in a layout.
 - **`Provider`** (`waku-jotai/minimal`) — the same, but you pass `rscPath` and `rscParams` explicitly.
+
+## Client stores and enhancers
+
+The integration's client Provider supplies its store to descendant Jotai hooks and atom synchronization. It uses the store passed to the factory, or creates an independent store. The server-side Providers prepare the request's server store. Mount both the client integration's Provider and the corresponding server Provider.
+
+Create the integration and enhancer array before rendering React, as in the examples above. Keep both stable across renders, including initial Suspense retries. Remount to change them.
+
+Compose ecosystem libraries through Waku's enhancer array. Later entries wrap earlier ones, so in `[otherEnhancer, jotai.rscEnhancer]`, Jotai patches the request params before `otherEnhancer` receives them. Reverse the order if the other enhancer needs the original params. Providers from other integrations can wrap the same native Root or Router; each library supplies its enhancer rather than replacing that component. Waku Router's private redirect and action enhancers wrap the application enhancers.
+
+Atom discovery metadata belongs to the integration. Roots sharing one integration share that metadata; create separate integrations for independent discovery, even when passing the same store. Unknown RSC paths pass through unchanged until their atoms are discovered. Discovery can finish after a request has started; installing an enhancer does not make atom IDs available before the server reports them. The streamed hydration payload bypasses client enhancers.
+
+Router prefetch caches do not include atom values in their keys. Changing an atom does not invalidate a prefetched result.
+
+## Migrating from 0.7
+
+Call `createJotaiIntegration` from the corresponding `waku-jotai/*/client` entry point in `src/waku.client.tsx`. Wrap Waku's native Root or Router with the returned Provider and add its enhancer to the stable enhancer array. Create that entry file for a file-based Router app that previously used Waku's managed client entry. Keep the server-side `Provider`, `RouterProvider`, and `getStore` imports. Atom subscriptions and development reloads continue to use the server Provider's client companion.
 
 ## How it works
 
@@ -112,4 +177,12 @@ Run one:
 ```bash
 pnpm compile
 pnpm examples:02_router
+```
+
+## Testing
+
+```sh
+pnpm test
+pnpm e2e
+E2E_MODE=production pnpm e2e
 ```

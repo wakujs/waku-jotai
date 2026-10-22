@@ -10,10 +10,10 @@
   },
   "dependencies": {
     "jotai": "^3.0.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-server-dom-webpack": "^19.3.0",
-    "waku": "1.0.0-rc.1",
+    "react": "~19.3.1",
+    "react-dom": "~19.3.1",
+    "react-server-dom-webpack": "~19.3.1",
+    "waku": "1.0.0-rc.4",
     "waku-jotai": "^0.7.0"
   },
   "devDependencies": {
