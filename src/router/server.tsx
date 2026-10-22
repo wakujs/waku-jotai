@@ -5,7 +5,7 @@ import {
 } from 'waku/router/server';
 
 import { prepareStore } from '../minimal/server.js';
-import { RouterSyncAtoms } from './client.js';
+import { SyncAtoms } from '../minimal/sync-atoms.js';
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -21,7 +21,7 @@ export const RouterProvider = ({ children }: { children: ReactNode }) => {
   return (
     <>
       {children}
-      <RouterSyncAtoms
+      <SyncAtoms
         atomsPromise={atomsPromise}
         rscPath={rscPath}
         rscParams={rest}

@@ -1,39 +1,39 @@
 'use client';
 
-import type { Atom } from 'jotai';
-import { SyncAtoms } from '../minimal/client.js';
+import type { ComponentProps } from 'react';
+import { Router as WakuRouter } from 'waku/router/client';
+import { useStore } from 'jotai';
+import {
+  AtomSyncContext,
+  ensureObjectRscParams,
+  getAtomSync,
+  getRscEnhancers,
+} from '../minimal/atom-sync.js';
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+const ensureRouterRscParams = (params: unknown) =>
+  params instanceof URLSearchParams && params.size === 1 && params.has('query')
+    ? { query: params.get('query') }
+    : ensureObjectRscParams(params);
 
-const ensureObjectRscParams = (rscParams: unknown): Record<string, unknown> => {
-  if (
-    // waku/router convention
-    rscParams instanceof URLSearchParams &&
-    rscParams.size === 1 &&
-    rscParams.has('query')
-  ) {
-    return { query: rscParams.get('query') };
-  } else if (isObject(rscParams)) {
-    return rscParams;
-  } else {
-    throw new Error('rscParams must be an object');
-  }
+/**
+ * Waku's Router with Jotai request synchronization installed before render.
+ * Uses the enclosing Jotai Provider's store, or the default store. Keep custom
+ * stores and `unstable_rscEnhancers` arrays stable for the mount, including
+ * initial Suspense retries. Remount to change either.
+ * The Jotai enhancer wraps the supplied array; Router's private enhancers wrap it.
+ * Pair with `RouterProvider` from `waku-jotai/router` in the server tree.
+ */
+export const Router = ({
+  unstable_rscEnhancers,
+  ...props
+}: ComponentProps<typeof WakuRouter>) => {
+  const sync = getAtomSync(useStore(), ensureRouterRscParams);
+  return (
+    <AtomSyncContext value={sync}>
+      <WakuRouter
+        {...props}
+        unstable_rscEnhancers={getRscEnhancers(sync, unstable_rscEnhancers)}
+      />
+    </AtomSyncContext>
+  );
 };
-
-export const RouterSyncAtoms = ({
-  atomsPromise,
-  rscPath,
-  rscParams,
-}: {
-  atomsPromise: Promise<Map<Atom<unknown>, string>>;
-  rscPath: string;
-  rscParams: unknown;
-}) => (
-  <SyncAtoms
-    atomsPromise={atomsPromise}
-    rscPath={rscPath}
-    rscParams={rscParams}
-    ensureObject={ensureObjectRscParams}
-  />
-);

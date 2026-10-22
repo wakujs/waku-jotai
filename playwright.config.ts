@@ -2,6 +2,7 @@ import { createServer } from 'node:net';
 import { defineConfig, devices } from '@playwright/test';
 
 const FIXTURES = ['01_minimal', '02_router', '03_search'] as const;
+const production = process.env.E2E_MODE === 'production';
 
 // Bind to port 0 and let the OS pick a free port. Tiny race between close and
 // waku binding the same port, but reliable in practice.
@@ -34,13 +35,16 @@ export default defineConfig({
   testDir: './e2e',
   projects: [
     {
-      name: 'chromium',
+      name: production ? 'chromium-prd' : 'chromium-dev',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
   webServer: FIXTURES.map((fixture) => ({
-    command: `cd examples/${fixture} && waku dev -p ${ports[fixture]}`,
+    command: `cd examples/${fixture} && ${
+      production ? 'waku build && waku start' : 'waku dev'
+    } -p ${ports[fixture]}`,
     url: `http://localhost:${ports[fixture]}`,
     reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   })),
 });

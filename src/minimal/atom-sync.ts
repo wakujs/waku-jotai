@@ -1,0 +1,89 @@
+import { createContext } from 'react';
+import type { Unstable_RscEnhancer } from 'waku/minimal/client';
+import { atom } from 'jotai';
+import type { Atom, createStore } from 'jotai';
+
+type Store = ReturnType<typeof createStore>;
+type EnsureObject = (params: unknown) => Record<string, unknown>;
+type AtomEntry = {
+  atoms: Map<Atom<unknown>, string>;
+  values: Map<Atom<unknown>, unknown>;
+};
+type AtomSync = {
+  store: Store;
+  ensureObject: EnsureObject;
+  atomsMap: Map<string, AtomEntry>;
+  enhance: Unstable_RscEnhancer;
+  pipelines: WeakMap<
+    readonly Unstable_RscEnhancer[],
+    readonly Unstable_RscEnhancer[]
+  >;
+};
+
+export const AtomSyncContext = createContext<AtomSync | null>(null);
+const syncs = new WeakMap<Store, Map<EnsureObject, AtomSync>>();
+const EMPTY_ENHANCERS: readonly Unstable_RscEnhancer[] = [];
+
+export const ensureObjectRscParams = (
+  params: unknown,
+): Record<string, unknown> => {
+  if (params === undefined) return {};
+  if (typeof params === 'object' && params !== null)
+    return params as Record<string, unknown>;
+  throw new Error('rscParams must be an object');
+};
+
+export const createAtomValuesAtom = (atoms: Map<Atom<unknown>, string>) =>
+  atom((get) => new Map(Array.from(atoms, ([a]) => [a, get(a)])));
+
+export const patchRscParams = (
+  params: Record<string, unknown>,
+  atoms: Map<Atom<unknown>, string>,
+  values: Map<Atom<unknown>, unknown>,
+) => ({
+  ...params,
+  jotai_atomValues: new Map(
+    Array.from(values, ([a, value]) => [atoms.get(a)!, value]),
+  ),
+});
+
+export const getAtomSync = (store: Store, ensureObject: EnsureObject) => {
+  let byParams = syncs.get(store);
+  if (!byParams) {
+    byParams = new Map();
+    syncs.set(store, byParams);
+  }
+  let sync = byParams.get(ensureObject);
+  if (!sync) {
+    const atomsMap = new Map<string, AtomEntry>();
+    sync = {
+      store,
+      ensureObject,
+      atomsMap,
+      enhance: (next) => (path, params, options) => {
+        const entry = options.type === 'rsc' ? atomsMap.get(path) : undefined;
+        if (entry?.atoms.size) {
+          const values = store.get(createAtomValuesAtom(entry.atoms));
+          values.forEach((value, atom) => entry.values.set(atom, value));
+          params = patchRscParams(ensureObject(params), entry.atoms, values);
+        }
+        return next(path, params, options);
+      },
+      pipelines: new WeakMap(),
+    };
+    byParams.set(ensureObject, sync);
+  }
+  return sync;
+};
+
+export const getRscEnhancers = (
+  sync: AtomSync,
+  enhancers: readonly Unstable_RscEnhancer[] = EMPTY_ENHANCERS,
+) => {
+  let pipeline = sync.pipelines.get(enhancers);
+  if (!pipeline) {
+    pipeline = [...enhancers, sync.enhance];
+    sync.pipelines.set(enhancers, pipeline);
+  }
+  return pipeline;
+};

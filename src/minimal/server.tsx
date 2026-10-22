@@ -9,7 +9,7 @@ import {
   INTERNAL_KEY_storeHooks as KEY_storeHooks,
 } from 'jotai/vanilla/internals';
 
-import { SyncAtoms } from './client.js';
+import { SyncAtoms } from './sync-atoms.js';
 
 const CLIENT_REFERENCE_TAG = Symbol.for('react.client.reference');
 
