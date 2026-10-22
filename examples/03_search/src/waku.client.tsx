@@ -1,11 +1,17 @@
 import { StrictMode } from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import { unstable_defaultRootOptions as defaultRootOptions } from 'waku/client';
-import { Router } from 'waku-jotai/router/client';
+import { Router } from 'waku/router/client';
+import { createJotaiIntegration } from 'waku-jotai/router/client';
+
+const jotai = createJotaiIntegration();
+const rscEnhancers = [jotai.rscEnhancer];
 
 const rootElement = (
   <StrictMode>
-    <Router />
+    <jotai.Provider>
+      <Router unstable_rscEnhancers={rscEnhancers} />
+    </jotai.Provider>
   </StrictMode>
 );
 

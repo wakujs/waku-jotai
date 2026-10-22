@@ -1,14 +1,15 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-import { Router as WakuRouter } from 'waku/router/client';
-import { useStore } from 'jotai';
+import type { ReactNode } from 'react';
+import { createStore, Provider as JotaiProvider } from 'jotai';
 import {
   AtomSyncContext,
+  createAtomSync,
   ensureObjectRscParams,
-  getAtomSync,
-  getRscEnhancers,
 } from '../minimal/atom-sync.js';
+import type { JotaiIntegration } from '../minimal/atom-sync.js';
+
+export type { JotaiIntegration } from '../minimal/atom-sync.js';
 
 const ensureRouterRscParams = (params: unknown) =>
   params instanceof URLSearchParams && params.size === 1 && params.has('query')
@@ -16,24 +17,22 @@ const ensureRouterRscParams = (params: unknown) =>
     : ensureObjectRscParams(params);
 
 /**
- * Waku's Router with Jotai request synchronization installed before render.
- * Uses the enclosing Jotai Provider's store, or the default store. Keep custom
- * stores and `unstable_rscEnhancers` arrays stable for the mount, including
- * initial Suspense retries. Remount to change either.
- * The Jotai enhancer wraps the supplied array; Router's private enhancers wrap it.
- * Pair with `RouterProvider` from `waku-jotai/router` in the server tree.
+ * Creates a client Provider and RSC enhancer bound to the given Jotai store.
+ * Creates a store if omitted. The Provider supplies it to descendant Jotai hooks.
+ * Call before rendering React and keep the integration and enhancer array stable
+ * across Suspense retries. Mount the Provider around Waku's native Router and
+ * include rscEnhancer in its unstable_rscEnhancers array. Later enhancers wrap
+ * earlier ones; place Jotai after enhancers that need synchronized params.
+ * Pair with the server RouterProvider from waku-jotai/router.
  */
-export const Router = ({
-  unstable_rscEnhancers,
-  ...props
-}: ComponentProps<typeof WakuRouter>) => {
-  const sync = getAtomSync(useStore(), ensureRouterRscParams);
-  return (
-    <AtomSyncContext value={sync}>
-      <WakuRouter
-        {...props}
-        unstable_rscEnhancers={getRscEnhancers(sync, unstable_rscEnhancers)}
-      />
-    </AtomSyncContext>
+export const createJotaiIntegration = (
+  store: ReturnType<typeof createStore> = createStore(),
+): JotaiIntegration => {
+  const sync = createAtomSync(store, ensureRouterRscParams);
+  const Provider = ({ children }: { children?: ReactNode }) => (
+    <JotaiProvider store={store}>
+      <AtomSyncContext value={sync}>{children}</AtomSyncContext>
+    </JotaiProvider>
   );
+  return { Provider, rscEnhancer: sync.enhance };
 };

@@ -47,7 +47,7 @@ export const SyncAtoms = ({
   useEffect(() => {
     if (!sync) {
       throw new Error(
-        'Use Root from waku-jotai/minimal/client or Router from waku-jotai/router/client.',
+        'Wrap Waku Root or Router with the Provider returned by createJotaiIntegration.',
       );
     }
     const { store, ensureObject, atomsMap } = sync;

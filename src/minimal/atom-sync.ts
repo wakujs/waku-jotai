@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import type { Unstable_RscEnhancer } from 'waku/minimal/client';
 import { atom } from 'jotai';
 import type { Atom, createStore } from 'jotai';
@@ -14,15 +15,14 @@ type AtomSync = {
   ensureObject: EnsureObject;
   atomsMap: Map<string, AtomEntry>;
   enhance: Unstable_RscEnhancer;
-  pipelines: WeakMap<
-    readonly Unstable_RscEnhancer[],
-    readonly Unstable_RscEnhancer[]
-  >;
+};
+
+export type JotaiIntegration = {
+  Provider: ComponentType<{ children?: ReactNode }>;
+  rscEnhancer: Unstable_RscEnhancer;
 };
 
 export const AtomSyncContext = createContext<AtomSync | null>(null);
-const syncs = new WeakMap<Store, Map<EnsureObject, AtomSync>>();
-const EMPTY_ENHANCERS: readonly Unstable_RscEnhancer[] = [];
 
 export const ensureObjectRscParams = (
   params: unknown,
@@ -47,43 +47,23 @@ export const patchRscParams = (
   ),
 });
 
-export const getAtomSync = (store: Store, ensureObject: EnsureObject) => {
-  let byParams = syncs.get(store);
-  if (!byParams) {
-    byParams = new Map();
-    syncs.set(store, byParams);
-  }
-  let sync = byParams.get(ensureObject);
-  if (!sync) {
-    const atomsMap = new Map<string, AtomEntry>();
-    sync = {
-      store,
-      ensureObject,
-      atomsMap,
-      enhance: (next) => (path, params, options) => {
-        const entry = options.type === 'rsc' ? atomsMap.get(path) : undefined;
-        if (entry?.atoms.size) {
-          const values = store.get(createAtomValuesAtom(entry.atoms));
-          values.forEach((value, atom) => entry.values.set(atom, value));
-          params = patchRscParams(ensureObject(params), entry.atoms, values);
-        }
-        return next(path, params, options);
-      },
-      pipelines: new WeakMap(),
-    };
-    byParams.set(ensureObject, sync);
-  }
-  return sync;
-};
-
-export const getRscEnhancers = (
-  sync: AtomSync,
-  enhancers: readonly Unstable_RscEnhancer[] = EMPTY_ENHANCERS,
-) => {
-  let pipeline = sync.pipelines.get(enhancers);
-  if (!pipeline) {
-    pipeline = [...enhancers, sync.enhance];
-    sync.pipelines.set(enhancers, pipeline);
-  }
-  return pipeline;
+export const createAtomSync = (
+  store: Store,
+  ensureObject: EnsureObject,
+): AtomSync => {
+  const atomsMap = new Map<string, AtomEntry>();
+  return {
+    store,
+    ensureObject,
+    atomsMap,
+    enhance: (next) => (path, params, options) => {
+      const entry = options.type === 'rsc' ? atomsMap.get(path) : undefined;
+      if (entry?.atoms.size) {
+        const values = store.get(createAtomValuesAtom(entry.atoms));
+        values.forEach((value, atom) => entry.values.set(atom, value));
+        params = patchRscParams(ensureObject(params), entry.atoms, values);
+      }
+      return next(path, params, options);
+    },
+  };
 };

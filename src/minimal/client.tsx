@@ -1,31 +1,33 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-import { Root_UNSTABLE as WakuRoot } from 'waku/minimal/client';
-import { useStore } from 'jotai';
+import type { ReactNode } from 'react';
+import { createStore, Provider as JotaiProvider } from 'jotai';
 import {
   AtomSyncContext,
+  createAtomSync,
   ensureObjectRscParams,
-  getAtomSync,
-  getRscEnhancers,
 } from './atom-sync.js';
+import type { JotaiIntegration } from './atom-sync.js';
+
+export type { JotaiIntegration } from './atom-sync.js';
 
 /**
- * Waku's Minimal Root with Jotai request synchronization installed before render.
- * Uses the enclosing Jotai Provider's store, or the default store. Keep custom
- * stores and `rscEnhancers` arrays stable for the mount, including initial
- * Suspense retries. Remount to change either.
- * The Jotai enhancer wraps the supplied array; other props pass through to Root.
- * Pair with `Provider` from `waku-jotai/minimal` in the server tree.
+ * Creates a client Provider and RSC enhancer bound to the given Jotai store.
+ * Creates a store if omitted. The Provider supplies it to descendant Jotai hooks.
+ * Call before rendering React and keep the integration and enhancer array stable
+ * across Suspense retries. Mount the Provider around Waku's native Minimal Root
+ * and include rscEnhancer in its rscEnhancers array. Later enhancers wrap earlier
+ * ones; place Jotai after enhancers that need synchronized params.
+ * Pair with the server Provider from waku-jotai/minimal.
  */
-export const Root = ({
-  rscEnhancers,
-  ...props
-}: ComponentProps<typeof WakuRoot>) => {
-  const sync = getAtomSync(useStore(), ensureObjectRscParams);
-  return (
-    <AtomSyncContext value={sync}>
-      <WakuRoot {...props} rscEnhancers={getRscEnhancers(sync, rscEnhancers)} />
-    </AtomSyncContext>
+export const createJotaiIntegration = (
+  store: ReturnType<typeof createStore> = createStore(),
+): JotaiIntegration => {
+  const sync = createAtomSync(store, ensureObjectRscParams);
+  const Provider = ({ children }: { children?: ReactNode }) => (
+    <JotaiProvider store={store}>
+      <AtomSyncContext value={sync}>{children}</AtomSyncContext>
+    </JotaiProvider>
   );
+  return { Provider, rscEnhancer: sync.enhance };
 };

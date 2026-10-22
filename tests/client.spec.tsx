@@ -1,15 +1,18 @@
 import { StrictMode, Suspense, useLayoutEffect } from 'react';
-import type { ReactNode } from 'react';
 import { renderToString } from 'react-dom/server';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { atom, createStore, Provider } from 'jotai';
+import { atom, createStore, useAtom, useAtomValue } from 'jotai';
 import type { Atom } from 'jotai';
-import { Root_UNSTABLE as WakuRoot } from 'waku/minimal/client';
 import type { Unstable_RscEnhancer } from 'waku/minimal/client';
-import { Router as WakuRouter } from 'waku/router/client';
-import { Root } from 'waku-jotai/minimal/client';
-import { Router } from 'waku-jotai/router/client';
+import { createJotaiIntegration } from 'waku-jotai/minimal/client';
+import { createJotaiIntegration as createRouterJotaiIntegration } from 'waku-jotai/router/client';
 import { SyncAtoms } from '../src/minimal/sync-atoms.js';
 
 type RequestRsc = Parameters<Unstable_RscEnhancer>[0];
@@ -17,21 +20,14 @@ const mocks = vi.hoisted(() => ({
   fetchRsc: vi.fn(async (_path: string, _params?: unknown) => ({})),
   mergeElements: vi.fn(async (elements: Promise<unknown>) => elements),
   registerReload: vi.fn(() => () => {}),
-  routerChildren: null as ReactNode,
 }));
 
 vi.mock('waku/minimal/client', () => ({
-  Root_UNSTABLE: vi.fn(({ children }: { children?: ReactNode }) => children),
   useFetchRsc_UNSTABLE: () => mocks.fetchRsc,
   useMergeElements_UNSTABLE: () => mocks.mergeElements,
   useRegisterRscReloadListener_UNSTABLE: () => mocks.registerReload,
 }));
-vi.mock('waku/router/client', () => ({
-  Router: vi.fn(() => mocks.routerChildren),
-}));
 
-const getMinimalPipeline = () =>
-  vi.mocked(WakuRoot).mock.calls.at(-1)![0].rscEnhancers!;
 const applyEnhancers = (
   enhancers: readonly Unstable_RscEnhancer[],
   next: RequestRsc,
@@ -40,11 +36,10 @@ const rscOptions = { type: 'rsc', fetch: globalThis.fetch } as const;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.routerChildren = null;
 });
 afterEach(cleanup);
 
-test('the server companion renders without a client-root context', () => {
+test('the server companion renders without a client integration context', () => {
   expect(
     renderToString(
       <SyncAtoms
@@ -56,62 +51,76 @@ test('the server companion renders without a client-root context', () => {
   ).toBe('');
 });
 
-test('Root preserves its pipeline across Strict Mode and initial Suspense retries', async () => {
-  const store = createStore();
-  const custom: readonly Unstable_RscEnhancer[] = [(next) => next];
+test('the Provider and enhancer share a store across Strict Mode and initial Suspense retries', async () => {
+  const count = atom(1);
+  const jotai = createJotaiIntegration();
+  const enhancers = [jotai.rscEnhancer];
+  const atomsPromise = Promise.resolve(
+    new Map<Atom<unknown>, string>([[count, 'count']]),
+  );
   let ready = false;
   let resolve: () => void;
   const pending = new Promise<void>((r) => {
     resolve = r;
   });
   const Child = () => {
+    const [value, setValue] = useAtom(count);
     if (!ready) throw pending;
-    return <p>ready</p>;
+    return (
+      <button onClick={() => setValue((n) => n + 1)}>count: {value}</button>
+    );
   };
   render(
     <StrictMode>
-      <Provider store={store}>
-        <Suspense fallback="loading">
-          <Root initialRscPath="page" rscEnhancers={custom}>
-            <Child />
-          </Root>
-        </Suspense>
-      </Provider>
+      <Suspense fallback="loading">
+        <jotai.Provider>
+          <Child />
+          <SyncAtoms
+            atomsPromise={atomsPromise}
+            rscPath="page"
+            rscParams={{}}
+          />
+        </jotai.Provider>
+      </Suspense>
     </StrictMode>,
   );
   expect(screen.getByText('loading')).toBeDefined();
-  const pipeline = getMinimalPipeline();
   await act(async () => {
     ready = true;
     resolve();
   });
-  expect(screen.getByText('ready')).toBeDefined();
-  const calls = vi.mocked(WakuRoot).mock.calls;
-  expect(calls.length).toBeGreaterThan(1);
-  expect(calls.every(([props]) => props.rscEnhancers === pipeline)).toBe(true);
-  expect(calls.at(-1)![0].initialRscPath).toBe('page');
-  expect(custom).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'count: 1' }));
+  expect(screen.getByRole('button', { name: 'count: 2' })).toBeDefined();
+  const next = vi.fn<RequestRsc>(async () => ({ elements: {} }));
+  await applyEnhancers(enhancers, next)('page', {}, rscOptions);
+  expect(next).toHaveBeenCalledWith(
+    'page',
+    { jotai_atomValues: new Map([['count', 2]]) },
+    rscOptions,
+  );
 });
 
-test('a layout-effect request uses live discovered values after the companion unmounts', async () => {
+test('callers choose which enhancers see synchronized params on a layout-effect request', async () => {
   const count = atom(1);
   const store = createStore();
+  const jotai = createJotaiIntegration(store);
   const atomsPromise = Promise.resolve(
     new Map<Atom<unknown>, string>([[count, 'count']]),
   );
-  const observed: unknown[] = [];
-  const custom: readonly Unstable_RscEnhancer[] = [
-    (next) => (path, params, options) => {
-      observed.push(params);
-      return next(path, params, options);
-    },
-  ];
+  const observed: [string, unknown][] = [];
+  const inner: Unstable_RscEnhancer = (next) => (path, params, options) => {
+    observed.push(['inner', params]);
+    return next(path, params, options);
+  };
+  const outer: Unstable_RscEnhancer = (next) => (path, params, options) => {
+    observed.push(['outer', params]);
+    return next(path, params, options);
+  };
+  const enhancers = [inner, jotai.rscEnhancer, outer];
   const view = render(
-    <Provider store={store}>
-      <Root rscEnhancers={custom}>
-        <SyncAtoms atomsPromise={atomsPromise} rscPath="page" rscParams={{}} />
-      </Root>
-    </Provider>,
+    <jotai.Provider>
+      <SyncAtoms atomsPromise={atomsPromise} rscPath="page" rscParams={{}} />
+    </jotai.Provider>,
   );
   await act(async () => {});
   view.unmount();
@@ -121,35 +130,33 @@ test('a layout-effect request uses live discovered values after the companion un
     elements: {},
     value: 'result',
   }));
+  const request = applyEnhancers(enhancers, next);
   const Probe = () => {
+    const value = useAtomValue(count);
     useLayoutEffect(() => {
-      void applyEnhancers(getMinimalPipeline(), next)(
-        'page',
-        { query: 'q=one' },
-        rscOptions,
-      );
+      void request('page', { query: 'q=one' }, rscOptions);
     }, []);
-    return null;
+    return <p>count: {value}</p>;
   };
   await act(async () => {
     render(
-      <Provider store={store}>
-        <Root rscEnhancers={custom}>
-          <Probe />
-        </Root>
-      </Provider>,
+      <jotai.Provider>
+        <Probe />
+      </jotai.Provider>,
     );
   });
+  const patched = {
+    query: 'q=one',
+    jotai_atomValues: new Map([['count', 7]]),
+  };
+  expect(screen.getByText('count: 7')).toBeDefined();
   expect(observed).toEqual([
-    { query: 'q=one', jotai_atomValues: new Map([['count', 7]]) },
+    ['outer', { query: 'q=one' }],
+    ['inner', patched],
   ]);
-  expect(next).toHaveBeenCalledWith('page', observed[0], rscOptions);
+  expect(next).toHaveBeenCalledWith('page', patched, rscOptions);
   const args = ['argument'];
-  const result = await applyEnhancers(getMinimalPipeline(), next)(
-    'page',
-    args,
-    { ...rscOptions, type: 'call' },
-  );
+  const result = await request('page', args, { ...rscOptions, type: 'call' });
   expect(next).toHaveBeenLastCalledWith('page', args, {
     ...rscOptions,
     type: 'call',
@@ -157,68 +164,67 @@ test('a layout-effect request uses live discovered values after the companion un
   expect(result.value).toBe('result');
 });
 
-test('separate Jotai stores keep request values isolated', async () => {
+test('default integrations keep client stores and request values isolated', async () => {
   const count = atom(1);
   const atomsPromise = Promise.resolve(
     new Map<Atom<unknown>, string>([[count, 'count']]),
   );
-  const first = createStore();
-  const second = createStore();
+  const first = createJotaiIntegration();
+  const second = createJotaiIntegration();
+  const Counter = ({ label }: { label: string }) => {
+    const [value, setValue] = useAtom(count);
+    return (
+      <button onClick={() => setValue(5)}>
+        {label}: {value}
+      </button>
+    );
+  };
   render(
-    <Provider store={first}>
-      <Root>
+    <>
+      <first.Provider>
+        <Counter label="first" />
         <SyncAtoms atomsPromise={atomsPromise} rscPath="page" rscParams={{}} />
-      </Root>
-    </Provider>,
-  );
-  const firstPipeline = getMinimalPipeline();
-  render(
-    <Provider store={second}>
-      <Root>
+      </first.Provider>
+      <second.Provider>
+        <Counter label="second" />
         <SyncAtoms atomsPromise={atomsPromise} rscPath="page" rscParams={{}} />
-      </Root>
-    </Provider>,
+      </second.Provider>
+    </>,
   );
-  const secondPipeline = getMinimalPipeline();
   await act(async () => {});
-  await act(async () => {
-    first.set(count, 5);
-  });
+  fireEvent.click(screen.getByRole('button', { name: 'first: 1' }));
+  expect(screen.getByRole('button', { name: 'first: 5' })).toBeDefined();
+  expect(screen.getByRole('button', { name: 'second: 1' })).toBeDefined();
   const next = vi.fn<RequestRsc>(async () => ({ elements: {} }));
-  await applyEnhancers(firstPipeline, next)('page', {}, rscOptions);
-  await applyEnhancers(secondPipeline, next)('page', {}, rscOptions);
+  await first.rscEnhancer(next)('page', {}, rscOptions);
+  await second.rscEnhancer(next)('page', {}, rscOptions);
   expect(next.mock.calls.map(([, params]) => params)).toEqual([
     { jotai_atomValues: new Map([['count', 5]]) },
     { jotai_atomValues: new Map([['count', 1]]) },
   ]);
-  expect(firstPipeline).not.toBe(secondPipeline);
 });
 
-test('Router preserves the query while synchronizing known routes', async () => {
+test('the Router integration preserves the query while synchronizing known routes', async () => {
   const count = atom(1);
   const store = createStore();
-  mocks.routerChildren = (
-    <SyncAtoms
-      atomsPromise={Promise.resolve(
-        new Map<Atom<unknown>, string>([[count, 'count']]),
-      )}
-      rscPath="R/page"
-      rscParams={{ query: '' }}
-    />
-  );
+  const jotai = createRouterJotaiIntegration(store);
   render(
-    <Provider store={store}>
-      <Router initialRoute={{ path: '/page', query: '', hash: '' }} />
-    </Provider>,
+    <jotai.Provider>
+      <SyncAtoms
+        atomsPromise={Promise.resolve(
+          new Map<Atom<unknown>, string>([[count, 'count']]),
+        )}
+        rscPath="R/page"
+        rscParams={{ query: '' }}
+      />
+    </jotai.Provider>,
   );
   await act(async () => {});
   await act(async () => {
     store.set(count, 3);
   });
-  const pipeline = vi.mocked(WakuRouter).mock.calls.at(-1)![0]
-    .unstable_rscEnhancers!;
   const next = vi.fn<RequestRsc>(async () => ({ elements: {} }));
-  const request = applyEnhancers(pipeline, next);
+  const request = jotai.rscEnhancer(next);
   await request('R/page', new URLSearchParams({ query: 'q=two' }), rscOptions);
   expect(next).toHaveBeenLastCalledWith(
     'R/page',
@@ -233,20 +239,19 @@ test('Router preserves the query while synchronizing known routes', async () => 
 test('late atom discovery refetches a value changed before discovery', async () => {
   const count = atom(1);
   const store = createStore();
+  const jotai = createJotaiIntegration(store);
   let discover: (atoms: Map<Atom<unknown>, string>) => void;
   const atomsPromise = new Promise<Map<Atom<unknown>, string>>((resolve) => {
     discover = resolve;
   });
   render(
-    <Provider store={store}>
-      <Root>
-        <SyncAtoms
-          atomsPromise={atomsPromise}
-          rscPath="page"
-          rscParams={{ query: 'q=one' }}
-        />
-      </Root>
-    </Provider>,
+    <jotai.Provider>
+      <SyncAtoms
+        atomsPromise={atomsPromise}
+        rscPath="page"
+        rscParams={{ query: 'q=one' }}
+      />
+    </jotai.Provider>,
   );
   await act(async () => {
     store.set(count, 4);
