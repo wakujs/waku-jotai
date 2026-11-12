@@ -1,10 +1,12 @@
 // deno-fmt-ignore-file
-// biome-ignore format: generated types do not need formatting
+// biome-ignore-all format: generated types do not need formatting
 // prettier-ignore
 import type { PathsForPages, GetConfigResponse, SearchCodecsForPages } from 'waku/router';
 
 // prettier-ignore
 import type { getConfig as File_Index_getConfig } from './pages/index';
+// prettier-ignore
+import type { getConfig as File_Layout_getConfig } from './pages/_layout';
 
 // prettier-ignore
 type Page =
@@ -12,7 +14,7 @@ type Page =
 
 // prettier-ignore
 type Layout =
-| { path: '/' };
+| ({ path: '/' } & Awaited<ReturnType<typeof File_Layout_getConfig>>);
 
 // prettier-ignore
 declare module 'waku/router' {
